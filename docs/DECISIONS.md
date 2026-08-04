@@ -270,3 +270,33 @@ Two things fall out of that shape and are asserted directly:
 `python-multipart` is likewise avoided: the one form endpoint parses its
 urlencoded body with the standard library rather than taking a dependency for a
 single field.
+
+
+---
+
+## D15 — Gate on P10, and an unreliable judge still works
+
+`Statistic.P10` was chosen over `MEAN` in D5 on the argument that a mean-based
+gate lets one user in five get a broken answer indefinitely. Running the rollout
+against a real model turned that from an argument into a measurement.
+
+`phi4-mini`, asked repeatedly to rate the *same* broken output — a subject line
+leaking an unrendered `{customer_name}` — returns 2.0 or 4.0, roughly a coin
+flip. Over 12 repeats: mean **3.00**, against a threshold of **3.0**. P10:
+**2.00**.
+
+So a mean-based gate would have sat exactly on its threshold and fired or not
+depending on the sample. The P10 gate fires cleanly, because it reads the bad
+tail rather than the average. In the full run the broken variant showed
+experimental p10 2.00 against baseline 4.00 and rolled back; the good variant
+showed 4.00 against 4.00 and reached 100%.
+
+**The general point:** a judge that identifies a defect only some of the time is
+still a usable safety signal, provided the gate looks at the tail. That is worth
+knowing because judges *are* unreliable — a small local model obviously so, but a
+frontier model on a subtle defect is only better by degree.
+
+The first version of the live test asserted on the mean and failed while the
+system was behaving correctly. It was testing a statistic the system never
+consults. `tests/phase2/test_judge_ollama_live.py::test_the_gate_survives_an_unreliable_judge`
+now records the tolerance as behaviour rather than as a comment.

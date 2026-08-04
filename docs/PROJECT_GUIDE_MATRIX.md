@@ -19,7 +19,7 @@ requirement — where something is substituted or unverified, it says so.
 |---|---|---|
 | Python 3.11+ | Python 3.11+ (`requires-python = ">=3.11"`) | ✅ |
 | PostgreSQL + Redis | PostgreSQL 16 for durable config, evidence and audit; Redis for the published snapshot and the outcome queue | ✅ real, contract-tested against both |
-| Custom + LLM-as-judge | `FixtureJudge` (deterministic, default) and `OllamaJudge` (opt-in, loopback-only) | ⚠️ no paid API is called on any code path |
+| Custom + LLM-as-judge | `FixtureJudge` (deterministic, default) and `OllamaJudge` (opt-in, loopback-only) | ✅ real-model evidence with `phi4-mini`, 520 inference calls — [OLLAMA_EVIDENCE](OLLAMA_EVIDENCE.md); no paid API on any code path |
 | Python client library | `aiflags.sdk.FlagClient` | ✅ |
 | React or Streamlit dashboard | Server-rendered HTML, no build step | ⚠️ neither — see [D14](DECISIONS.md) |
 | Slack webhooks | `SlackWebhookNotifier` implemented; `RecordingNotifier` is the default | ⚠️ never delivered; needs a URL and Wycliffe's go-ahead |
@@ -60,7 +60,7 @@ design ([D9](DECISIONS.md)) and something has to undo it deliberately.
 
 | # | Guide requirement | Where | Evidence |
 |---|---|---|---|
-| 1 | LLM-as-judge scoring (1–5) | `judge/` | ⚠️ fixture default, Ollama opt-in; no paid API |
+| 1 | LLM-as-judge scoring (1–5) | `judge/` | ✅ driven end to end by a real local model — [OLLAMA_EVIDENCE](OLLAMA_EVIDENCE.md) |
 | 1 | User feedback signals | `QualitySignal.FEEDBACK` | ✅ |
 | 1 | Latency thresholds | `QualitySignal.LATENCY_MS` | ✅ |
 | 1 | Error rate | `QualitySignal.ERROR_RATE` | ✅ |
@@ -152,13 +152,12 @@ a judge that times out reads as "no bad scores observed" and the rollout ramps t
 
 ## Summary
 
-Every requirement is built and evidenced. Four items are substitutions driven by
-the no-paid-API constraint, and each is stated as such here and in
-`DECISIONS.md` rather than absorbed silently:
+Every requirement is built and evidenced. Three items remain substitutions,
+each stated as such here and in `DECISIONS.md` rather than absorbed silently:
 
 | Substitution | Why |
 |---|---|
-| Fixture judge by default, Ollama opt-in | no paid API on any code path |
+| Fixture judge by default, local Ollama opt-in | no paid API on any code path; a real model *has* driven the full rollout, see [OLLAMA_EVIDENCE](OLLAMA_EVIDENCE.md) |
 | Server-rendered HTML dashboard | see [D14](DECISIONS.md) — a choice, not a constraint |
 | Slack payloads recorded, not delivered | outward-facing; needs a webhook URL and consent |
 | No business-metric impact | no real business data exists to measure |

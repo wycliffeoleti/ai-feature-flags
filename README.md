@@ -149,6 +149,22 @@ on an injected clock. No stage duration was shortened for the demo.
 
 A walkthrough for recording it is in [`docs/DEMO_RUNBOOK.md`](docs/DEMO_RUNBOOK.md).
 
+### Judged by a real model
+
+The default judge is a deterministic rubric, which keeps the pipeline
+reproducible. The same rollout has also been driven end to end by **`phi4-mini`
+running locally under Ollama** — 520 real inference calls, no paid API:
+
+| Variant | Experimental | Baseline | Outcome |
+|---|---|---|---|
+| Broken template | mean 2.56, **p10 2.00** | mean 4.03 | rolled back |
+| Good template | mean 4.06 | mean 4.04 | reached 100% |
+
+Full numbers in [`docs/OLLAMA_EVIDENCE.md`](docs/OLLAMA_EVIDENCE.md). One finding
+worth the space: `phi4-mini` scores the *same* broken output 2.0 or 4.0 — right
+about half the time. The rollback still fires, because the gate reads P10 rather
+than the mean. An unreliable judge is survivable if you gate on the tail.
+
 ## What this is not
 
 - Not a production deployment, and not evidence of one.
