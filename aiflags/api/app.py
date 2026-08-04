@@ -40,12 +40,18 @@ from aiflags.api.schemas import (
 FlagKey = Annotated[str, Path(min_length=1, max_length=200)]
 
 
-def create_app(repository: FlagRepository) -> FastAPI:
+def create_app(
+    repository: FlagRepository, quality_store=None
+) -> FastAPI:
     """Build the API around a repository.
 
-    Taking the repository as an argument rather than reaching for a module-level
-    singleton is what lets the test suite drive the whole surface against the
-    in-memory store with no database running.
+    Taking the stores as arguments rather than reaching for module-level
+    singletons is what lets the test suite drive the whole surface against the
+    in-memory implementations with no database running.
+
+    ``quality_store`` is optional: without it the API serves flag management
+    only, which is all the Phase 1 surface needs. Supplying one mounts the
+    dashboard, which reads quality evidence as well as configuration.
     """
     app = FastAPI(
         title="ai-feature-flags",
@@ -159,6 +165,11 @@ def create_app(repository: FlagRepository) -> FastAPI:
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    if quality_store is not None:
+        from aiflags.dashboard.views import create_dashboard_router
+
+        app.include_router(create_dashboard_router(repository, quality_store))
 
     return app
 

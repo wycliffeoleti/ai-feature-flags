@@ -237,3 +237,36 @@ answer.
 Outcomes from a *degraded* evaluation are different and do count: when the SDK
 served baseline because its snapshot was stale, that genuinely was baseline
 output.
+
+---
+
+## D14 — The dashboard is server-rendered HTML, not Streamlit
+
+**Substitution from the guide**, which specifies "React or Streamlit".
+
+Neither is used. Streamlit could not be installed — this machine lost PyPI egress
+partway through the build — and React would need a Node toolchain and a build
+step for what are read-mostly operational tables. The dashboard is instead
+server-rendered HTML with inline CSS and no JavaScript beyond a single
+`confirm()` on the rollback button.
+
+This is recorded as a substitution rather than glossed. The guide matrix must not
+claim Streamlit, and neither must the README.
+
+What it costs: no live refresh, no client-side charting. What it buys: the pages
+render from exactly the data the controller decided on, with no build step or
+serialisation layer between them, and the whole dashboard is testable as pure
+functions from view models to strings.
+
+Two things fall out of that shape and are asserted directly:
+
+- Every interpolated value is escaped. Rollback reasons are free text and, in the
+  demo, derive from model output.
+- A blind window — no scored samples — renders as `no scored samples` in red,
+  never as a clean row. Presenting an unmeasured rollout as a healthy one is the
+  exact failure the unscored-rate signal exists to prevent, and it would be
+  trivially easy to reintroduce at the presentation layer.
+
+`python-multipart` is likewise avoided: the one form endpoint parses its
+urlencoded body with the standard library rather than taking a dependency for a
+single field.

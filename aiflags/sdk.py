@@ -281,3 +281,23 @@ class FlagClient:
                 self._dropped += len(batch) - max(room, 0)
                 batch = batch[len(batch) - max(room, 0) :] if room > 0 else []
         self._buffer.extendleft(reversed(batch))
+
+
+class RepositorySnapshotSource:
+    """Reads snapshots straight from a repository, with no Redis in between.
+
+    For single-process use: the demo application, tests, and documentation
+    examples, where publishing to Redis and polling it back would add moving
+    parts without changing any behaviour being demonstrated.
+
+    A real deployment uses :class:`~aiflags.store.redis_snapshot.RedisSnapshotStore`
+    instead, so the read path stays off the database.
+    """
+
+    __slots__ = ("_repository",)
+
+    def __init__(self, repository) -> None:
+        self._repository = repository
+
+    def fetch(self) -> FlagSnapshot | None:
+        return self._repository.snapshot()

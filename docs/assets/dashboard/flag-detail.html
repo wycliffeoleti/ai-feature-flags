@@ -1,0 +1,37 @@
+<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1'><title>summary_v3</title><style>
+:root { color-scheme: light dark; }
+* { box-sizing: border-box; }
+body { font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+       margin: 0; padding: 2rem; max-width: 78rem; margin-inline: auto; }
+h1, h2 { font-weight: 600; letter-spacing: -0.01em; }
+h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+h2 { font-size: 1.1rem; margin-top: 2.5rem; }
+.sub { opacity: 0.7; margin-top: 0; }
+table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+th, td { text-align: left; padding: 0.55rem 0.7rem; border-bottom: 1px solid
+         color-mix(in srgb, currentColor 15%, transparent); vertical-align: top; }
+th { font-weight: 600; font-size: 0.8rem; text-transform: uppercase;
+     letter-spacing: 0.04em; opacity: 0.65; }
+td.num { font-variant-numeric: tabular-nums; }
+.badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px;
+         font-size: 0.78rem; font-weight: 600; white-space: nowrap;
+         border: 1px solid currentColor; }
+.badge.rolling_out { color: #1d6fd4; }
+.badge.fully_on    { color: #12805c; }
+.badge.rolled_back { color: #c0392b; }
+.badge.paused      { color: #b7791f; }
+.badge.shadow      { color: #6b46c1; }
+.badge.off         { opacity: 0.6; }
+.bar { position: relative; height: 0.5rem; border-radius: 999px; margin-top: 0.3rem;
+       background: color-mix(in srgb, currentColor 15%, transparent); }
+.bar > span { position: absolute; inset-block: 0; left: 0; border-radius: 999px;
+              background: currentColor; }
+.warn { color: #c0392b; font-weight: 600; }
+.muted { opacity: 0.6; }
+.reason { max-width: 34rem; font-size: 0.9rem; }
+form { display: inline; }
+button { font: inherit; padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer;
+         border: 1px solid currentColor; background: transparent; color: inherit; }
+button.danger { color: #c0392b; font-weight: 600; }
+nav a { margin-right: 1rem; }
+</style></head><body><nav><a href='/dashboard'>Flags</a><a href='/dashboard/analytics'>Analytics</a></nav><h1>summary_v3</h1><p class='sub'><span class='badge rolled_back'>rolled_back</span> at 0% &middot; stage 1 of 5</p><h2>Quality gates</h2><ul><li>judge_score p10 below 3, sustained over 50 evaluations</li></ul><h2>Rollout schedule</h2><table><thead><tr><th>Stage</th><th>Percentage</th><th>Dwell</th><th></th></tr></thead><tbody><tr><td class='num'>1</td><td class='num'>1%</td><td class='num'>2.0h</td><td><strong>current</strong></td></tr><tr><td class='num'>2</td><td class='num'>5%</td><td class='num'>6.0h</td><td><span class='muted'>upcoming</span></td></tr><tr><td class='num'>3</td><td class='num'>25%</td><td class='num'>1.0d</td><td><span class='muted'>upcoming</span></td></tr><tr><td class='num'>4</td><td class='num'>50%</td><td class='num'>1.0d</td><td><span class='muted'>upcoming</span></td></tr><tr><td class='num'>5</td><td class='num'>100%</td><td class='num'>1.0d</td><td><span class='muted'>upcoming</span></td></tr></tbody></table><h2>Controller decisions</h2><p class='sub'>Holds are recorded too — that is what explains a rollout that has not moved.</p><table><thead><tr><th>When</th><th>Action</th><th>Reason</th><th>Canary</th></tr></thead><tbody><tr><td>2026-08-04T13:00:00+00:00</td><td><strong>rollback</strong></td><td class='reason'>judge_score p10 of 1.4 is below the threshold 3.0 across 50 consecutive evaluations</td><td class='muted'>worse (n=80)</td></tr></tbody></table><h2>Audit trail</h2><table><thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Reason</th></tr></thead><tbody><tr><td>2026-08-04T01:02:45+00:00</td><td>create_flag</td><td>wycliffe</td><td class='reason'>trying a terser summary prompt</td></tr></tbody></table></body></html>
