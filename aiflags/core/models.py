@@ -386,3 +386,17 @@ class EvaluationResult:
     @property
     def is_degraded(self) -> bool:
         return self.reason in DEGRADED_REASONS
+
+
+class CanaryVerdict(StrEnum):
+    """Result of comparing the experimental variant against baseline.
+
+    Defined here rather than in :mod:`aiflags.core.canary` so that
+    :mod:`aiflags.core.decision` can consume a verdict without importing SciPy.
+    The decision logic must stay pure stdlib and instantly testable; only the
+    statistics that produce the verdict need the heavyweight dependency.
+    """
+
+    NO_WORSE = "no_worse"
+    WORSE = "worse"
+    INCONCLUSIVE = "inconclusive"
