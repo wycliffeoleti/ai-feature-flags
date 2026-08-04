@@ -9,7 +9,7 @@ not when it looks done.
 
 | Phase | Scope | Exit criterion | Status |
 |---|---|---|---|
-| 1 | Flag schema, bucketing, targeting, evaluation, SDK, migrations, management API | `uv run pytest tests/phase1 -q` | **Core done, API pending** |
+| 1 | Flag schema, bucketing, targeting, evaluation, SDK, migrations, management API | `uv run pytest tests/phase1 -q` | **Done** — [evidence](PHASE_1_EVIDENCE.md) |
 | 2 | Judge protocol, queue, evaluator worker, rolling windows, rollback rules, notifier | `uv run pytest tests/phase2 -q` | **Windows + decision rules done; worker/judge/notifier pending** |
 | 3 | Staged schedules, canary gating, shadow mode, controller loop | `uv run pytest tests/phase3 -q` | **Decision + canary done; controller loop pending** |
 | 4 | Dashboard, analytics view, SDK docs as doctests | `uv run pytest tests/phase4 -q` | Not started |
