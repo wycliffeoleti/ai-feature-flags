@@ -20,9 +20,8 @@ Built and verified against real PostgreSQL and Redis: the decision core, the SDK
 the management API, the quality evaluator, the rollout controller, the operator
 dashboard, and an end-to-end demo. **450 tests.**
 
-One thing is written but unverified — the container image has never been built,
-because this machine has no PyPI egress. Details in
-[`docs/BLOCKED.md`](docs/BLOCKED.md); requirement-by-requirement status in
+The Compose stack builds and passes an end-to-end acceptance run.
+Requirement-by-requirement status is in
 [`docs/PROJECT_GUIDE_MATRIX.md`](docs/PROJECT_GUIDE_MATRIX.md).
 
 ```bash
@@ -41,6 +40,12 @@ docker run -d --name aiflags-redis \
   -p 127.0.0.1:56379:6379 redis/redis-stack-server:7.4.0-v8
 
 bash scripts/acceptance_local.sh       # full stack, end to end
+```
+
+Or the whole thing in containers:
+
+```bash
+bash scripts/acceptance.sh             # builds and runs the Compose stack
 ```
 
 ## How it works
@@ -149,7 +154,6 @@ A walkthrough for recording it is in [`docs/DEMO_RUNBOOK.md`](docs/DEMO_RUNBOOK.
 - Not a production deployment, and not evidence of one.
 - Not a provider integration. No paid API is called from any code path.
 - Not a claim about real users, real traffic, or measured business impact.
-- Not a running container stack — `compose.yaml` exists but has never been built.
 - Not a replacement for LaunchDarkly or Flagsmith. It is a focused
   demonstration of the one thing those do not do: tie a rollout schedule to
   measured output quality.

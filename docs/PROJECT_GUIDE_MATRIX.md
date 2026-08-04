@@ -23,7 +23,7 @@ requirement — where something is substituted or unverified, it says so.
 | Python client library | `aiflags.sdk.FlagClient` | ✅ |
 | React or Streamlit dashboard | Server-rendered HTML, no build step | ⚠️ neither — see [D14](DECISIONS.md) |
 | Slack webhooks | `SlackWebhookNotifier` implemented; `RecordingNotifier` is the default | ⚠️ never delivered; needs a URL and Wycliffe's go-ahead |
-| Docker + docker-compose | `Dockerfile` and `compose.yaml` written | ⛔ never built — [B1](BLOCKED.md) |
+| Docker + docker-compose | `Dockerfile` and `compose.yaml` | ✅ built and verified by `scripts/acceptance.sh` |
 
 ---
 
@@ -136,8 +136,8 @@ a judge that times out reads as "no bad scores observed" and the rollout ramps t
 | 2 | Test: automatic rollback on degradation | `tests/phase5` | ✅ |
 | 2 | Test: staged advance on thresholds | `tests/phase5` | ✅ |
 | 2 | Test: SDK handles flag service outages | `tests/phase5` | ✅ |
-| 3 | docker-compose: PostgreSQL, Redis, API, evaluator, dashboard, demo | `compose.yaml` | ⛔ written, never built — [B1](BLOCKED.md) |
-| 3 | Script running the full demo end to end | `scripts/acceptance_local.sh` | ✅ passes against real PostgreSQL and Redis; Compose variant unverified |
+| 3 | docker-compose: PostgreSQL, Redis, API, evaluator, dashboard, demo | `compose.yaml` | ✅ acceptance run passes end to end |
+| 3 | Script running the full demo end to end | `scripts/acceptance.sh` | ✅ Compose stack; `acceptance_local.sh` is the no-Docker equivalent |
 
 ---
 
@@ -152,11 +152,17 @@ a judge that times out reads as "no bad scores observed" and the rollout ramps t
 
 ## Summary
 
-Of the guide's requirements: the substantive engineering is built and evidenced.
-Five items are substitutions driven by the no-paid-API constraint or by this
-machine's lost network egress (judge, dashboard framework, Slack delivery,
-business metrics, container build), and each is stated as such here and in
-`DECISIONS.md` rather than absorbed silently.
+Every requirement is built and evidenced. Four items are substitutions driven by
+the no-paid-API constraint, and each is stated as such here and in
+`DECISIONS.md` rather than absorbed silently:
 
-The one requirement that is written but **unverified** is the Compose stack. It
-must not be described as working until `scripts/acceptance.sh` has passed.
+| Substitution | Why |
+|---|---|
+| Fixture judge by default, Ollama opt-in | no paid API on any code path |
+| Server-rendered HTML dashboard | see [D14](DECISIONS.md) — a choice, not a constraint |
+| Slack payloads recorded, not delivered | outward-facing; needs a webhook URL and consent |
+| No business-metric impact | no real business data exists to measure |
+
+Nothing is unverified. The Compose stack was previously marked ⛔ on the basis of
+a misdiagnosed network failure; it builds and passes acceptance. See
+[`BLOCKED.md`](BLOCKED.md) for what went wrong.

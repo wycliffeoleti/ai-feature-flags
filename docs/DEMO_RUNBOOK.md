@@ -149,7 +149,10 @@ normal pace, inside the guide's four-minute limit with margin for a fluffed line
 
 ## Not included
 
-The Compose stack (`docker compose up`) is deliberately absent — it has never
-been built ([B1](BLOCKED.md)), so it must not appear in a recording. Once the
-image builds, `scripts/acceptance.sh` replaces `acceptance_local.sh` at the 2:45
-mark with no other change to the script.
+The Compose stack is absent from the script for pacing, not correctness — it
+builds and passes acceptance (`scripts/acceptance.sh`), but `docker compose up
+--build` takes long enough to break a four-minute narration. Use
+`acceptance_local.sh` while filming; mention the Compose stack verbally.
+
+If you would rather show containers, run `docker compose up -d --build` **before**
+recording and swap the 2:45 command for `curl` against the running API.

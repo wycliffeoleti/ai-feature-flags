@@ -8,8 +8,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Default off 8000 deliberately: that port is frequently occupied on a
+# development machine, and this script must not fail because of it.
+AIFLAGS_API_PORT="${AIFLAGS_API_PORT:-8188}"
+export AIFLAGS_API_PORT
 COMPOSE="${COMPOSE:-docker compose}"
-API="http://127.0.0.1:8000"
+API="http://127.0.0.1:${AIFLAGS_API_PORT}"
 
 cleanup() {
   echo "--- tearing down"

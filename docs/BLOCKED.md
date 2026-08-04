@@ -1,85 +1,77 @@
-# Blocked
+# Blockers
 
-One item cannot be completed on this machine in its current state. Everything
-else in Phases 1–5 is done and verified.
+**Nothing is currently blocked.** All six phases meet their exit criteria.
+
+This file is kept because the one entry it held was a misdiagnosis, and the way
+it went wrong is worth not repeating.
 
 ---
 
-## B1 — The container image cannot be built (no PyPI egress)
+## B1 — "No PyPI egress" — RESOLVED, and it was never true
 
-**Blocks:** the second half of Phase 5's exit criterion —
-`scripts/acceptance.sh` bringing up Compose and exiting 0.
+**Claimed:** the machine had no HTTPS egress to PyPI, so the container image
+could not be built and Streamlit could not be installed.
 
-**Symptom:** `docker build` hangs indefinitely on the `pip install` layer.
+**Actually:** PyPI was reachable the whole time. The diagnosis was wrong.
 
-**Cause:** this machine has no HTTPS egress to PyPI. Diagnosed rather than
-assumed:
+### How it went wrong
 
-| Check | Result |
-|---|---|
-| `getent hosts pypi.org` | resolves (IPv6 records) |
-| `ping 1.1.1.1` | 0% loss, 45ms |
-| `curl -4 https://pypi.org/simple/` | times out |
-| `curl -6 https://pypi.org/simple/` | times out |
-| `uv sync` (fresh packages) | times out |
-| `docker build` (pip layer) | times out |
+The reachability probe was `curl https://pypi.org/simple/`. That URL is the
+**full package index** — every project on PyPI in a single HTML document,
+40 MB and still streaming after 25 seconds. Every probe hit the timeout, and the
+timeout was read as an outage.
 
-DNS and ICMP work; HTTPS to PyPI does not, over either address family. The
-project's own dependencies were installed before egress was lost, which is why
-the test suite runs — but `python:3.12-slim` has none of them, so the image build
-cannot proceed.
+The surrounding evidence looked consistent and reinforced it: DNS resolved, ICMP
+worked, `uv sync` timed out, `docker build` hung on the pip layer. All true, and
+all explained by something else — those commands ran in a **sandboxed shell with
+no network**, which produces exactly the same symptom as a network outage.
 
-**What was verified instead:** `scripts/acceptance_local.sh` runs the identical
-assertions against a locally launched API backed by the *same real services*
-(PostgreSQL 16 and Redis Stack in containers). It passes end to end:
+Two independent causes, one shared symptom, and a probe that would have timed out
+even on a perfect connection. The conclusion was over-determined and wrong.
 
-```
---- running the offline rollout scenario
-      broken variant  : rolled_back at 0%
-        reason        : judge_score p10 of 2.5 is below the threshold 3
-                        across 50 consecutive evaluations
-      good variant    : hold -> advance -> advance -> advance -> complete
-                        fully_on at 100%
---- asserting the end state
-    flag is rolled_back at 0%
-    audit trail complete: create_flag -> set_rollout_percentage -> rollback
-    rollback reverted from 25.0%
-    snapshot v3 serves the rolled-back flag
-    dashboard, detail and analytics served
-PASS
-```
-
-So the application code, the schema, the API, the data plane, and the dashboard
-are all exercised against real PostgreSQL and Redis. What is **not** verified is
-the containerisation itself: the `Dockerfile` and `compose.yaml` are written and
-syntactically valid but have never been built or run.
-
-**To unblock**, with network available:
+### What actually establishes reachability
 
 ```bash
-docker build -t aiflags .          # should complete
-./scripts/acceptance.sh            # should print PASS
+curl -sS -o /dev/null -w '%{http_code}\n' https://pypi.org/            # 200 in 0.11s
+curl -sS -o /dev/null -w '%{http_code}\n' https://pypi.org/simple/requests/
+curl -sS -o /dev/null -w '%{http_code}\n' https://files.pythonhosted.org/
 ```
 
-If it passes, `compose.yaml` and the `Dockerfile` can be treated as verified and
-Phase 5 marked complete. Until then, **do not claim the Compose stack runs** —
-neither in the README, the guide matrix, nor any portfolio material.
+Never `/simple/` with no package name. It is not a health check; it is a bulk
+download.
 
-**Not attempted, deliberately:** vendoring wheels from the local `uv` cache into
-the image, or building from a `--find-links` directory. Both would produce an
-image that builds only on this machine, which is a worse artefact than an honest
-"unverified" — the point of the Dockerfile is that someone else can run it.
+### The lesson
+
+A probe has to be able to succeed quickly when the thing works. `/simple/`
+cannot, so it could only ever produce evidence for the negative conclusion.
+Before writing an environmental blocker, check that the check itself is sound —
+especially when several signals agree, because agreement between symptoms of
+different causes feels like corroboration and is not.
+
+### Consequences that were reverted
+
+- `Dockerfile` and `compose.yaml` are built and verified — `scripts/acceptance.sh`
+  passes end to end.
+- The guide matrix no longer marks the Compose stack unverified.
+- The README no longer says the container stack does not run.
+
+### Consequence deliberately left standing
+
+The dashboard is still server-rendered HTML rather than Streamlit
+([D14](DECISIONS.md)). That began as a workaround for the imagined blocker, but
+the reasoning holds independently: it is read-mostly operational tables, it needs
+no build step, and it renders from exactly the data the controller decided on.
+Switching to Streamlit is now *possible* rather than *necessary* — a call for
+Wycliffe, not a blocker.
 
 ---
 
-## Related open items (not blockers)
+## Open items (not blockers)
 
-- **Streamlit** — same root cause. The dashboard is server-rendered HTML instead;
-  recorded as a substitution in `DECISIONS.md` D14, not as a blocker, because the
-  requirement (an operator dashboard) is met by other means.
-- **Browser screenshots** — needs Wycliffe's Chrome session. Static HTML in
-  `docs/assets/dashboard/` is the reviewable artefact meanwhile.
+- **Demo recording** — runbook written and timed; Wycliffe's to make.
 - **Real Slack delivery** — implemented and unit-tested; needs a webhook URL and
-  Wycliffe's go-ahead.
+  explicit go-ahead.
 - **Ollama judge** — implemented and boundary-tested; needs a running local
   Ollama and a model tag to produce real-model evidence.
+- **Browser screenshots** — static HTML in `docs/assets/dashboard/` is the
+  reviewable artefact; screenshots need Wycliffe's Chrome session.

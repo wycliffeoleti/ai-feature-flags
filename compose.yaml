@@ -45,7 +45,10 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     ports:
-      - "127.0.0.1:8000:8000"
+      # Host port is overridable: 8000 is commonly already taken on a
+      # development machine, and an acceptance run must not depend on it
+      # being free. The container port never changes.
+      - "127.0.0.1:${AIFLAGS_API_PORT:-8000}:8000"
     command: >
       uvicorn aiflags.api.main:app --host 0.0.0.0 --port 8000
 
