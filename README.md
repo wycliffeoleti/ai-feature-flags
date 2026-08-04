@@ -16,19 +16,32 @@ rollout schedule to it, and rolls back before the ramp continues.
 
 ## Status
 
-The pure decision core is complete and tested. The service layer — Postgres,
-Redis, the management API, the workers, and the dashboard — is in progress. See
-[`docs/PHASE_PLAN.md`](docs/PHASE_PLAN.md) for what exists today.
+Built and verified against real PostgreSQL and Redis: the decision core, the SDK,
+the management API, the quality evaluator, the rollout controller, the operator
+dashboard, and an end-to-end demo. **450 tests.**
+
+One thing is written but unverified — the container image has never been built,
+because this machine has no PyPI egress. Details in
+[`docs/BLOCKED.md`](docs/BLOCKED.md); requirement-by-requirement status in
+[`docs/PROJECT_GUIDE_MATRIX.md`](docs/PROJECT_GUIDE_MATRIX.md).
 
 ```bash
-uv run pytest -q                             # 149 tests, no services required
-
-# Everything except the canary comparison is stdlib-only and runs with no
-# virtualenv at all. Only core/canary.py needs SciPy.
-python3 -m unittest discover -s tests -t . -p 'test_*.py' 2>/dev/null   # 127 tests
+uv run pytest -q                       # 393 tests, no services required
+uv run python -m aiflags.demo.scenario # the full rollout lifecycle, 1.6s
 ```
 
-No test in the suite needs Postgres, Redis, Docker, or a network.
+With PostgreSQL and Redis running, the suite is 450 tests — the extra 57 are the
+store and transport contracts run against the real services rather than the
+in-memory implementations. Same test bodies, so the two cannot drift.
+
+```bash
+docker run -d --name aiflags-pg -e POSTGRES_PASSWORD=aiflags \
+  -e POSTGRES_DB=aiflags -p 127.0.0.1:55432:5432 postgres:16
+docker run -d --name aiflags-redis \
+  -p 127.0.0.1:56379:6379 redis/redis-stack-server:7.4.0-v8
+
+bash scripts/acceptance_local.sh       # full stack, end to end
+```
 
 ## How it works
 
@@ -106,11 +119,37 @@ than an exception in your request handler. `record_outcome()` appends to a
 bounded buffer and never blocks; network work happens in `refresh()` and
 `flush()`, which the host application schedules.
 
+## The demo
+
+`uv run python -m aiflags.demo.scenario` runs both lifecycles in 1.6 seconds:
+
+```
+[1/2] BROKEN variant   template: "Hi {customer_name}, about your {topic}"
+      controller      : rollback
+      rollback reason : judge_score p10 of 2.5 is below the threshold 3
+                        across 50 consecutive evaluations
+
+[2/2] GOOD variant     template: "{topic} — action needed"
+      controller      : hold -> advance -> advance -> advance -> complete
+      final status    : fully_on at 100%
+```
+
+The failure is a realistic one. The experimental prompt references
+`{customer_name}`, which the pipeline never populates, so it renders verbatim and
+ships to users — while every downstream system reports success. That is the shape
+of AI feature failure a boolean flag cannot see.
+
+Both runs use the guide's real schedule (1% for two hours, 5% for six, and so on)
+on an injected clock. No stage duration was shortened for the demo.
+
+A walkthrough for recording it is in [`docs/DEMO_RUNBOOK.md`](docs/DEMO_RUNBOOK.md).
+
 ## What this is not
 
 - Not a production deployment, and not evidence of one.
 - Not a provider integration. No paid API is called from any code path.
 - Not a claim about real users, real traffic, or measured business impact.
+- Not a running container stack — `compose.yaml` exists but has never been built.
 - Not a replacement for LaunchDarkly or Flagsmith. It is a focused
   demonstration of the one thing those do not do: tie a rollout schedule to
   measured output quality.
