@@ -20,20 +20,27 @@ from aiflags.store.base import FlagRepository
 logger = logging.getLogger(__name__)
 
 
-def build_repository() -> FlagRepository:
+def build_stores() -> tuple[FlagRepository, object]:
+    """Build the flag repository and quality store from the environment."""
     dsn = os.environ.get("AIFLAGS_POSTGRES_DSN")
     if not dsn:
         logger.warning(
-            "AIFLAGS_POSTGRES_DSN is not set; using the in-memory repository. "
-            "All flag configuration and audit history will be lost on restart."
+            "AIFLAGS_POSTGRES_DSN is not set; using in-memory stores. "
+            "All flag configuration, audit history and quality evidence will be "
+            "lost on restart."
         )
         from aiflags.store.memory import InMemoryFlagRepository
+        from aiflags.store.quality import InMemoryQualityStore
 
-        return InMemoryFlagRepository()
+        return InMemoryFlagRepository(), InMemoryQualityStore()
 
     from aiflags.store.postgres import PostgresFlagRepository
+    from aiflags.store.quality_postgres import PostgresQualityStore
 
-    return PostgresFlagRepository(dsn)
+    repository = PostgresFlagRepository(dsn)
+    # The flag repository owns migrations, so the quality store is built after
+    # it: quality_samples and rollout_state come from 002.
+    return repository, PostgresQualityStore(dsn)
 
 
-app = create_app(build_repository())
+app = create_app(*build_stores())

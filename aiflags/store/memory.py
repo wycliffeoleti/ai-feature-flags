@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import copy
 import threading
-from datetime import UTC, datetime
 
 from aiflags.core.models import FlagDefinition, FlagSnapshot, FlagStatus
 from aiflags.store.base import (
@@ -27,11 +26,20 @@ from aiflags.store.base import (
 class InMemoryFlagRepository:
     """Thread-safe, process-local implementation of :class:`FlagRepository`."""
 
-    def __init__(self) -> None:
+    def __init__(self, clock=None) -> None:
         self._flags: dict[str, dict] = {}
         self._audit: list[AuditEvent] = []
         self._version = 0
         self._lock = threading.RLock()
+        # Snapshot and audit timestamps come from here. Reading the wall clock
+        # directly would make `published_at` incomparable with an SDK running on
+        # an injected clock, and staleness would then be measured across two
+        # different timelines.
+        if clock is None:
+            from aiflags.clock import SystemClock
+
+            clock = SystemClock()
+        self._clock = clock
 
     # -- reads -------------------------------------------------------------- #
 
@@ -51,7 +59,7 @@ class InMemoryFlagRepository:
         with self._lock:
             return FlagSnapshot(
                 version=self._version,
-                published_at=datetime.now(UTC),
+                published_at=self._clock.now(),
                 flags={
                     key: flag_from_dict(copy.deepcopy(payload))
                     for key, payload in self._flags.items()
@@ -145,7 +153,7 @@ class InMemoryFlagRepository:
                 action=action,
                 actor=actor,
                 reason=reason,
-                at=datetime.now(UTC),
+                at=self._clock.now(),
                 snapshot_version=self._version,
                 detail=detail,
             )

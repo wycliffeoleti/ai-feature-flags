@@ -1,0 +1,71 @@
+# Local stack for BASWE Project 12.
+#
+# Every published port binds to 127.0.0.1 explicitly. A bare "8000:8000" would
+# listen on every interface, which on a laptop on a shared network means the
+# management API — which can roll a feature back for all users — is reachable by
+# anyone on that network. This stack has no authentication, so the loopback bind
+# is the only thing standing between it and the room.
+#
+# PostgreSQL and Redis publish no host ports at all; nothing outside the compose
+# network needs to reach them.
+
+name: aiflags
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: aiflags
+      POSTGRES_USER: aiflags
+      POSTGRES_DB: aiflags
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiflags -d aiflags"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    tmpfs:
+      # Local demo data only. Nothing here is worth persisting, and a tmpfs
+      # makes "docker compose down" genuinely reset the stack.
+      - /var/lib/postgresql/data
+
+  redis:
+    image: redis/redis-stack-server:7.4.0-v8
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build: .
+    environment:
+      AIFLAGS_POSTGRES_DSN: postgresql://aiflags:aiflags@postgres:5432/aiflags
+      AIFLAGS_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    ports:
+      - "127.0.0.1:8000:8000"
+    command: >
+      uvicorn aiflags.api.main:app --host 0.0.0.0 --port 8000
+
+  evaluator:
+    build: .
+    environment:
+      AIFLAGS_POSTGRES_DSN: postgresql://aiflags:aiflags@postgres:5432/aiflags
+      AIFLAGS_REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    command: python -m aiflags.workers.run evaluator
+
+  controller:
+    build: .
+    environment:
+      AIFLAGS_POSTGRES_DSN: postgresql://aiflags:aiflags@postgres:5432/aiflags
+      AIFLAGS_REDIS_URL: redis://redis:6379/0
+      AIFLAGS_CONTROLLER_INTERVAL_SECONDS: "5"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    command: python -m aiflags.workers.run controller

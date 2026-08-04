@@ -13,7 +13,7 @@ not when it looks done.
 | 2 | Judge protocol, queue, evaluator worker, rolling windows, rollback rules, notifier | `uv run pytest tests/phase2 -q` | **Done** — [evidence](PHASE_2_EVIDENCE.md) |
 | 3 | Staged schedules, canary gating, shadow mode, controller loop | `uv run pytest tests/phase3 -q` | **Done** — [evidence](PHASE_3_EVIDENCE.md) |
 | 4 | Dashboard, analytics view, SDK docs as doctests | `uv run pytest tests/phase4 -q` | **Done** — [evidence](PHASE_4_EVIDENCE.md) |
-| 5 | Demo app, four integration tests, Compose stack | `uv run pytest tests/phase5 -q` and `scripts/acceptance.sh` | Not started |
+| 5 | Demo app, four integration tests, Compose stack | `uv run pytest tests/phase5 -q` and `scripts/acceptance.sh` | **Partial** — tests and local acceptance pass; container build blocked ([B1](BLOCKED.md)) |
 | 6 | Timed runbook, README narrative, guide matrix | runbook under 4 minutes; matrix complete | Not started |
 
 The pure core landed first and out of phase order. That was a response to a

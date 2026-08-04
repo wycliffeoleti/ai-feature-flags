@@ -260,12 +260,17 @@ class RolloutController:
             )
 
         elif decision.action is Action.COMPLETE:
-            self._repository.set_rollout_percentage(
-                flag.key,
-                decision.target_percentage,
-                actor=CONTROLLER_ACTOR,
-                reason=decision.reason,
-            )
+            # The final stage's percentage was already applied by the advance
+            # that entered it. Writing it again would add an audit entry
+            # recording a change that did not happen, and an audit trail whose
+            # entries do not correspond to changes is worth less than none.
+            if flag.rollout_percentage != decision.target_percentage:
+                self._repository.set_rollout_percentage(
+                    flag.key,
+                    decision.target_percentage,
+                    actor=CONTROLLER_ACTOR,
+                    reason=decision.reason,
+                )
             self._repository.set_status(
                 flag.key,
                 FlagStatus.FULLY_ON,
