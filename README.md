@@ -16,37 +16,98 @@ rollout schedule to it, and rolls back before the ramp continues.
 
 ## Status
 
-Built and verified against real PostgreSQL and Redis: the decision core, the SDK,
-the management API, the quality evaluator, the rollout controller, the operator
-dashboard, and an end-to-end demo. **450 tests.**
+Complete. The decision core, SDK, management API, quality evaluator, rollout
+controller, operator dashboard, and an end-to-end demo — verified against real
+PostgreSQL, Redis, a containerised stack, and a real language model.
+**457 tests, all passing.**
 
 The Compose stack builds and passes an end-to-end acceptance run.
 Requirement-by-requirement status is in
 [`docs/PROJECT_GUIDE_MATRIX.md`](docs/PROJECT_GUIDE_MATRIX.md).
 
 ```bash
-uv run pytest -q                       # 393 tests, no services required
+uv run pytest -q                       # 393 tests, nothing installed but the deps
 uv run python -m aiflags.demo.scenario # the full rollout lifecycle, 1.6s
 ```
 
-With PostgreSQL and Redis running, the suite is 450 tests — the extra 57 are the
-store and transport contracts run against the real services rather than the
-in-memory implementations. Same test bodies, so the two cannot drift.
+The suite is layered — it stays useful with nothing running and gets stricter as
+services appear:
+
+| Running | Result |
+|---|---|
+| Nothing | 393 passed, 64 skipped |
+| + PostgreSQL and Redis | 450 passed, 7 skipped |
+| + a local Ollama model | **457 passed** |
+
+The extra tests are not a stronger variant of the same checks — the store and
+transport contracts run *one test body* against both the in-memory and real
+implementations, so the two cannot drift.
+
+## The demo
+
+`uv run python -m aiflags.demo.scenario` runs both lifecycles in 1.6 seconds:
+
+```
+[1/2] BROKEN variant   template: "Hi {customer_name}, about your {topic}"
+      controller      : rollback
+      rollback reason : judge_score p10 of 2.5 is below the threshold 3
+                        across 50 consecutive evaluations
+
+[2/2] GOOD variant     template: "{topic} — action needed"
+      controller      : hold -> advance -> advance -> advance -> complete
+      final status    : fully_on at 100%
+```
+
+The failure is a realistic one. The experimental prompt references
+`{customer_name}`, which the pipeline never populates, so it renders verbatim and
+ships to users — while every downstream system reports success. That is the shape
+of AI feature failure a boolean flag cannot see.
+
+Both runs use the guide's real schedule (1% for two hours, 5% for six, and so on)
+on an injected clock. No stage duration was shortened for the demo.
+
+A walkthrough for recording it is in [`docs/DEMO_RUNBOOK.md`](docs/DEMO_RUNBOOK.md).
+
+### Running the whole stack
 
 ```bash
+bash scripts/acceptance.sh             # builds and runs the Compose stack
+
+# or, without containers, against local PostgreSQL and Redis:
 docker run -d --name aiflags-pg -e POSTGRES_PASSWORD=aiflags \
   -e POSTGRES_DB=aiflags -p 127.0.0.1:55432:5432 postgres:16
 docker run -d --name aiflags-redis \
   -p 127.0.0.1:56379:6379 redis/redis-stack-server:7.4.0-v8
-
-bash scripts/acceptance_local.sh       # full stack, end to end
+bash scripts/acceptance_local.sh
 ```
 
-Or the whole thing in containers:
+Either script asserts the end state rather than merely running: the bad variant
+rolled back, the audit trail complete with the percentage it reverted from, and
+the dashboard served.
 
-```bash
-bash scripts/acceptance.sh             # builds and runs the Compose stack
-```
+### Judged by a real model
+
+The default judge is a deterministic rubric, which keeps the pipeline
+reproducible. The same rollout has also been driven end to end by **`phi4-mini`
+running locally under Ollama** — 520 real inference calls, no paid API:
+
+| Variant | Experimental | Baseline | Outcome |
+|---|---|---|---|
+| Broken template | mean 2.56, **p10 2.00** | mean 4.03 | rolled back |
+| Good template | mean 4.06 | mean 4.04 | reached 100% |
+
+Full numbers in [`docs/OLLAMA_EVIDENCE.md`](docs/OLLAMA_EVIDENCE.md).
+
+One finding worth the space. `phi4-mini` misses roughly one broken output in
+four — it is not a reliable judge. The rollback fires anyway, because P10 reads
+the bottom decile and the misses only lift the top of the distribution. But the
+tolerance is one-directional: a judge that *false-alarms* on good output drags
+the baseline's own P10 down and the gate stops discriminating entirely. Measured
+on differently-phrased clean text, the same model false-alarms about 19% of the
+time, and under that error rate only the mean separates the variants.
+
+So the gate statistic has to be chosen against the judge's measured error
+profile, not picked on principle — [D15](docs/DECISIONS.md) has the numbers.
 
 ## How it works
 
@@ -123,47 +184,6 @@ unreachable, stale snapshot, unknown flag — resolves to baseline traffic rathe
 than an exception in your request handler. `record_outcome()` appends to a
 bounded buffer and never blocks; network work happens in `refresh()` and
 `flush()`, which the host application schedules.
-
-## The demo
-
-`uv run python -m aiflags.demo.scenario` runs both lifecycles in 1.6 seconds:
-
-```
-[1/2] BROKEN variant   template: "Hi {customer_name}, about your {topic}"
-      controller      : rollback
-      rollback reason : judge_score p10 of 2.5 is below the threshold 3
-                        across 50 consecutive evaluations
-
-[2/2] GOOD variant     template: "{topic} — action needed"
-      controller      : hold -> advance -> advance -> advance -> complete
-      final status    : fully_on at 100%
-```
-
-The failure is a realistic one. The experimental prompt references
-`{customer_name}`, which the pipeline never populates, so it renders verbatim and
-ships to users — while every downstream system reports success. That is the shape
-of AI feature failure a boolean flag cannot see.
-
-Both runs use the guide's real schedule (1% for two hours, 5% for six, and so on)
-on an injected clock. No stage duration was shortened for the demo.
-
-A walkthrough for recording it is in [`docs/DEMO_RUNBOOK.md`](docs/DEMO_RUNBOOK.md).
-
-### Judged by a real model
-
-The default judge is a deterministic rubric, which keeps the pipeline
-reproducible. The same rollout has also been driven end to end by **`phi4-mini`
-running locally under Ollama** — 520 real inference calls, no paid API:
-
-| Variant | Experimental | Baseline | Outcome |
-|---|---|---|---|
-| Broken template | mean 2.56, **p10 2.00** | mean 4.03 | rolled back |
-| Good template | mean 4.06 | mean 4.04 | reached 100% |
-
-Full numbers in [`docs/OLLAMA_EVIDENCE.md`](docs/OLLAMA_EVIDENCE.md). One finding
-worth the space: `phi4-mini` scores the *same* broken output 2.0 or 4.0 — right
-about half the time. The rollback still fires, because the gate reads P10 rather
-than the mean. An unreliable judge is survivable if you gate on the tail.
 
 ## What this is not
 

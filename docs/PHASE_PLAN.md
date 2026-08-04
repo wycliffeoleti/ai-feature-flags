@@ -16,27 +16,24 @@ not when it looks done.
 | 5 | Demo app, four integration tests, Compose stack | `uv run pytest tests/phase5 -q` and `scripts/acceptance.sh` | **Done** — [evidence](PHASE_5_EVIDENCE.md) |
 | 6 | Timed runbook, README narrative, guide matrix | runbook under 4 minutes; matrix complete | **Done** — recording is Wycliffe's |
 
-The pure core landed first and out of phase order. That was a response to a
-temporary loss of PyPI egress on the build machine: the stdlib-only core (D1)
-stayed fully buildable and testable while nothing could be installed. The
-remaining work in each phase is the part that needs Postgres, Redis, FastAPI, or
-a judge process.
+The pure core landed first and out of phase order, so it could be built and
+tested while the service layer was still being stood up. The remaining work in
+each phase is the part that needs PostgreSQL, Redis, FastAPI, or a judge process.
 
-## What exists now
+## Test counts
 
-149 tests, no network and no services required. All but `core/canary.py`
-(which needs SciPy) run with no virtualenv at all:
+**457 tests, all passing.** The suite is layered so it stays useful with nothing
+installed and gets stricter as services become available:
 
-| Module | Tests |
-|---|---|
-| `core/bucketing.py` | 7 — determinism, uniformity, cross-flag independence, frozen vectors |
-| `core/targeting.py` | 12 — full precedence table, miss cases, validation |
-| `core/evaluation.py` | 24 — stickiness, monotonic ramp, every fail-safe path, status handling |
-| `clock.py` | 9 — fake and scaled time |
-| `sdk.py` | 25 — outage degradation, bounded buffer, shadow reporting |
-| `core/windows.py` | 22 — statistics, window selection, unscored handling, trend |
-| `core/decision.py` | 28 — the full decision table |
-| `core/canary.py` | 22 — non-inferiority verdicts, test selection, degenerate input |
+| What is running | Result | What the extra tests cover |
+|---|---|---|
+| Nothing | 393 passed, 64 skipped | the whole system against in-memory implementations |
+| + PostgreSQL and Redis | 450 passed, 7 skipped | store and transport contracts against real services |
+| + a local Ollama model | **457 passed** | the judge driven by a real language model |
+
+The skipped tests are never a weaker variant — the store and transport contracts
+run *one test body* against both the in-memory and real implementations, so the
+two cannot drift.
 
 ## Test discipline
 

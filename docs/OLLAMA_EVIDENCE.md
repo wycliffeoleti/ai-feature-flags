@@ -51,7 +51,16 @@ clean ones, the P10 gate breaches, and the controller rolls back — the same
 decision path the fixture judge drives, reached from real model judgements.
 
 Scores from a language model are not deterministic. Re-running this will
-produce different numbers; what should reproduce is the *separation*
-between the two variants and the resulting decision.
+produce different numbers; what should reproduce is the *separation* between the
+two variants and the resulting decision.
+
+**The judge is not reliable, and that is measured rather than assumed.** Over 32
+repeats per variant on these same outputs, `phi4-mini` misses roughly one broken
+output in four (2.0 ×25, 4.0 ×7) while never misfiring on the baseline
+(4.0 ×31, 5.0 ×1). The P10 gate works precisely because the errors run in one
+direction. On differently-phrased clean text the same model false-alarms about
+19% of the time, and under that error rate P10 stops discriminating altogether.
+See [D15](DECISIONS.md) — the statistic a gate uses has to be chosen against the
+judge's measured error profile.
 
 **Outcome: PASS**

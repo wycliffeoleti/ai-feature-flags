@@ -274,29 +274,49 @@ single field.
 
 ---
 
-## D15 — Gate on P10, and an unreliable judge still works
+## D15 — P10 tolerates a judge that misses defects, not one that cries wolf
 
-`Statistic.P10` was chosen over `MEAN` in D5 on the argument that a mean-based
-gate lets one user in five get a broken answer indefinitely. Running the rollout
-against a real model turned that from an argument into a measurement.
+`Statistic.P10` was chosen over `MEAN` in D5 on an argument: a mean-based gate
+lets one user in five get a broken answer indefinitely. Running the rollout
+against a real model turned that into a measurement, and sharpened the claim.
 
-`phi4-mini`, asked repeatedly to rate the *same* broken output — a subject line
-leaking an unrendered `{customer_name}` — returns 2.0 or 4.0, roughly a coin
-flip. Over 12 repeats: mean **3.00**, against a threshold of **3.0**. P10:
-**2.00**.
+Scoring the demo's own outputs with `phi4-mini`, 32 samples each:
 
-So a mean-based gate would have sat exactly on its threshold and fired or not
-depending on the sample. The P10 gate fires cleanly, because it reads the bad
-tail rather than the average. In the full run the broken variant showed
-experimental p10 2.00 against baseline 4.00 and rolled back; the good variant
-showed 4.00 against 4.00 and reached 100%.
+| | distribution | mean | P10 |
+|---|---|---|---|
+| Baseline — `"March invoice — action needed"` | 4.0 ×31, 5.0 ×1 | 4.03 | **4.0** |
+| Experimental — leaks `{customer_name}` | 2.0 ×25, 4.0 ×7 | 2.44 | **2.0** |
 
-**The general point:** a judge that identifies a defect only some of the time is
-still a usable safety signal, provided the gate looks at the tail. That is worth
-knowing because judges *are* unreliable — a small local model obviously so, but a
-frontier model on a subtle defect is only better by degree.
+The judge misses roughly one broken output in four. P10 fires anyway, because
+those misses lift the *upper* part of the distribution while the bottom decile
+stays bad. That is the asymmetry the gate depends on.
 
-The first version of the live test asserted on the mean and failed while the
-system was behaving correctly. It was testing a statistic the system never
-consults. `tests/phase2/test_judge_ollama_live.py::test_the_gate_survives_an_unreliable_judge`
-now records the tolerance as behaviour rather than as a comment.
+**What P10 could not survive is the opposite error.** A judge that raises false
+alarms on clean output drags the baseline's own P10 down and destroys the
+separation entirely. Measured: on plausible-looking subject lines that the demo
+does *not* generate — "Your March invoice is ready" and similar — the same model
+returns 2.0 about 19% of the time. Under that error rate both variants have a P10
+of 2.0 and the gate cannot discriminate at all; only the means separate
+(3.62 vs 2.69).
+
+So the choice of statistic is not free, and is not a matter of taste:
+
+| Judge error profile | Usable gate |
+|---|---|
+| Misses defects, never false-alarms | P10 — catches the tail the mean would dilute |
+| False-alarms on good output | Mean, or a higher percentile; P10 sits inside the noise floor |
+
+A deterministic judge like `FixtureJudge` has no false alarms by construction, so
+P10 is strictly better there. For a model judge, the error profile has to be
+measured before the statistic is chosen. `scripts/ollama_evidence.py` is what
+measures it.
+
+### A correction
+
+An earlier version of this entry claimed P10 survives *any* unreliable judge, on
+the strength of a 12-sample run. A larger sample showed that conclusion was too
+broad — it held only because the errors happened to be one-directional. The live
+test that produced it was also scoring invented subject lines rather than the
+demo's real output, which is where the 19% false-alarm rate came from. Both are
+fixed: `tests/phase2/test_judge_ollama_live.py` now scores real generator output,
+and the claim is narrowed to what was actually measured.
