@@ -119,7 +119,19 @@ class ScenarioResult:
 class Demo:
     """The whole stack, in one process, on a controllable clock."""
 
-    def __init__(self, subjects: int = 5000) -> None:
+    def __init__(
+        self,
+        subjects: int = 5000,
+        judge=None,
+        plan: RolloutPlan | None = None,
+        policy: QualityPolicy | None = None,
+    ) -> None:
+        """``judge`` and ``plan`` are injectable so the same machinery can be
+        driven by a real model on a shorter ramp. The quality gates stay
+        identical in both cases — only traffic volume changes, never strictness.
+        """
+        self._plan = plan if plan is not None else DEMO_PLAN
+        self._policy = policy if policy is not None else DEMO_POLICY
         self.clock = FakeClock(EPOCH)
         self.repository = InMemoryFlagRepository(clock=self.clock)
         self.quality = InMemoryQualityStore()
@@ -136,7 +148,7 @@ class Demo:
         self.evaluator = QualityEvaluator(
             queue=self.queue,
             store=self.quality,
-            judge=FixtureJudge(),
+            judge=judge if judge is not None else FixtureJudge(),
             flag_lookup=self.repository.get_flag,
             clock=self.clock,
         )
@@ -164,8 +176,8 @@ class Demo:
                 experimental=Variant(
                     key="v2", kind=VariantKind.EXPERIMENTAL, config={"template": template}
                 ),
-                quality_policy=DEMO_POLICY,
-                rollout_plan=DEMO_PLAN,
+                quality_policy=self._policy,
+                rollout_plan=self._plan,
                 status=FlagStatus.OFF,
                 rollout_percentage=0.0,
             ),
@@ -181,7 +193,7 @@ class Demo:
             reason="begin staged rollout at 1%",
         )
         self.repository.set_rollout_percentage(
-            key, DEMO_PLAN.stages[0].percentage, actor="wycliffe", reason="stage 1"
+            key, self._plan.stages[0].percentage, actor="wycliffe", reason="stage 1"
         )
 
     # -- traffic ------------------------------------------------------------- #
@@ -244,8 +256,8 @@ class Demo:
 
             # Advance past the current stage's dwell so the next tick can act.
             state = self.quality.get_rollout_state(key)
-            stage_index = min(state.stage_index, len(DEMO_PLAN.stages) - 1)
-            self.clock.advance(DEMO_PLAN.stages[stage_index].dwell_seconds)
+            stage_index = min(state.stage_index, len(self._plan.stages) - 1)
+            self.clock.advance(self._plan.stages[stage_index].dwell_seconds)
 
         flag = self.repository.get_flag(key)
         result.final_status = flag.status
