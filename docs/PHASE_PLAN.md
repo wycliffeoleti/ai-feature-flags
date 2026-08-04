@@ -24,7 +24,8 @@ a judge process.
 
 ## What exists now
 
-149 tests, no network and no services required:
+149 tests, no network and no services required. All but `core/canary.py`
+(which needs SciPy) run with no virtualenv at all:
 
 | Module | Tests |
 |---|---|

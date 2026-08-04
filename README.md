@@ -21,12 +21,14 @@ Redis, the management API, the workers, and the dashboard — is in progress. Se
 [`docs/PHASE_PLAN.md`](docs/PHASE_PLAN.md) for what exists today.
 
 ```bash
-python3 -m unittest discover -s tests -t .   # 149 tests, no install needed
-uv run pytest -q                             # same suite under pytest
+uv run pytest -q                             # 149 tests, no services required
+
+# Everything except the canary comparison is stdlib-only and runs with no
+# virtualenv at all. Only core/canary.py needs SciPy.
+python3 -m unittest discover -s tests -t . -p 'test_*.py' 2>/dev/null   # 127 tests
 ```
 
-The core deliberately depends on nothing but the standard library, so the command
-above works on a clean checkout with no virtualenv.
+No test in the suite needs Postgres, Redis, Docker, or a network.
 
 ## How it works
 
