@@ -183,3 +183,57 @@ criteria.
 
 The practical benefit showed up immediately: the entire pure core stayed testable
 during a period when the machine had no working PyPI egress.
+
+---
+
+## D11 — Redis carries the snapshot and the queue, not the quality counters
+
+**Deviation from the original plan**, which had Redis holding "rolling-window
+quality counters" as well.
+
+Redis carries two things: the published flag snapshot the SDK polls, and the
+outcome queue. Both are load-bearing — the snapshot is the data plane's entire
+read path, and the queue is what keeps judging off the request path — and losing
+either is survivable. An evicted snapshot leaves SDKs serving their cached copy
+until the publisher rewrites it; a lost queue entry is one missing sample.
+
+The quality evidence stays in PostgreSQL. A decision to withdraw a feature from
+users has to be justifiable from data that cannot be evicted under memory
+pressure, and reconstructable months later when someone asks why the ramp
+stopped. Redis counters would also be a denormalised second copy of the same
+facts, and the failure mode of two copies is that they disagree — with the
+rollback decision reading the wrong one.
+
+The cost is a PostgreSQL query per controller tick instead of a Redis read. At
+one tick per flag per interval, that is not a load worth trading correctness for.
+
+---
+
+## D12 — The unscored rate is derived, not stored
+
+`QualitySignal.UNSCORED_RATE` has no rows of its own. `WindowStats.unscored_rate`
+is computed from the `scored` flags already on the judge-score samples, and the
+controller feeds those samples to an unscored-rate gate.
+
+Storing a second row per evaluation would duplicate one fact in two places that
+could then disagree — and the disagreement would be invisible, because both
+would look plausible. The unscored rate is a property of *how the judge-score
+samples were judged*, not an independent measurement.
+
+---
+
+## D13 — An unattributable outcome is skipped, never guessed
+
+If an outcome names a variant key the flag no longer defines — because the flag
+was edited between evaluation and scoring — the evaluator discards it and logs a
+warning rather than attributing it to whichever side looks closest.
+
+A mis-attributed sample corrupts the exact comparison it feeds: a bad
+experimental output filed under baseline makes the experiment look better than it
+is, in the one number that decides whether users keep seeing it. Losing a sample
+costs a little statistical power; misfiling one produces a confidently wrong
+answer.
+
+Outcomes from a *degraded* evaluation are different and do count: when the SDK
+served baseline because its snapshot was stale, that genuinely was baseline
+output.
